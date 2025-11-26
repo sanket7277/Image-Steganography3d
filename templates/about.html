@@ -1,0 +1,20 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="container py-5 text-center">
+  <h1 class="fw-bold mb-3">About This Project</h1>
+  <p class="lead text-muted">
+    This project implements <strong>Image Steganography</strong>, a technique for concealing secret
+    messages or images within ordinary pictures. Using the <strong>Least Significant Bit (LSB)</strong> method,
+    data can be hidden securely without noticeably altering the original image.
+  </p>
+  <p class="text-muted mt-3">
+    The tool is built with <strong>Python (Flask)</strong> for the backend and <strong>HTML, CSS, Bootstrap</strong> 
+    for the frontend, making it simple, secure, and user-friendly. It allows password-protected encoding and decoding, 
+    ensuring confidentiality while maintaining image quality.
+  </p>
+  <p class="text-muted mt-3">
+    Applications of steganography include <strong>secure communication, digital watermarking, privacy protection, 
+    and cybersecurity</strong>. While it strengthens data privacy, it must be used responsibly to avoid misuse.
+  </p>
+</div>
+{% endblock %}

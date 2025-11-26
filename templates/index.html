@@ -1,0 +1,121 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Encode Message / File</h5>
+
+                <form action="{{ url_for('encode') }}" method="post" enctype="multipart/form-data">
+
+                    <!-- COVER IMAGE -->
+                    <div class="mb-3">
+                        <label class="form-label">Cover Image (PNG/JPG/JPEG/BMP)</label>
+                        <input class="form-control" type="file" name="cover_image" accept="image/*" required>
+                        <div class="form-text">Use a large image for large files. Output will be PNG.</div>
+                    </div>
+
+                    <!-- WHAT TO HIDE -->
+                    <div class="mb-3">
+                        <label class="form-label">What do you want to hide?</label>
+                        <div class="d-flex flex-wrap">
+
+                            <div class="form-check form-check-inline me-4">
+                                <input class="form-check-input" type="radio" name="payload_type"
+                                       id="typeText" value="text" checked onclick="togglePayloadControls()">
+                                <label class="form-check-label" for="typeText">Text</label>
+                            </div>
+
+                            <div class="form-check form-check-inline me-4">
+                                <input class="form-check-input" type="radio" name="payload_type"
+                                       id="typeImage" value="image" onclick="togglePayloadControls()">
+                                <label class="form-check-label" for="typeImage">Image</label>
+                            </div>
+
+                            <div class="form-check form-check-inline me-4">
+                                <input class="form-check-input" type="radio" name="payload_type"
+                                       id="type3D" value="3d" onclick="togglePayloadControls()">
+                                <label class="form-check-label" for="type3D">3D Image</label>
+                            </div>
+
+                            <div class="form-check form-check-inline me-4">
+                                <input class="form-check-input" type="radio" name="payload_type"
+                                       id="typeVideo" value="video" onclick="togglePayloadControls()">
+                                <label class="form-check-label" for="typeVideo">Video</label>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- SECRET TEXT -->
+                    <div id="textBox" class="mb-3">
+                        <label class="form-label">Secret Text</label>
+                        <textarea class="form-control" name="secret_text" rows="4"
+                                  placeholder="Type the secret message..."></textarea>
+                    </div>
+
+                    <!-- SECRET FILE (Image / 3D / Video) -->
+                    <div id="fileBox" class="mb-3" style="display:none;">
+                        <label class="form-label">Secret File</label>
+                        <input class="form-control" type="file" name="secret_file"
+                               accept=".png,.jpg,.jpeg,.bmp,
+                                       .mp4,.avi,.mkv,.mov,.webm,
+                                       .obj,.stl,.fbx,.gltf,.glb,.dae,.3ds">
+                        <div class="form-text">
+                            Supported: Image / 3D Model / Video / Any binary file.
+                        </div>
+                    </div>
+
+                    <!-- PASSWORD -->
+                    <div class="mb-3">
+                        <label class="form-label">Password (required)</label>
+                        <input class="form-control" type="password" name="password"
+                               placeholder="Encrypt payload with a password" required>
+                        <div class="form-text">You must enter this password to decode later.</div>
+                    </div>
+
+                    <button class="btn btn-primary" type="submit">Encode</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- RESULT SECTION -->
+        {% if stego_image %}
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Result</h5>
+                <p class="mb-2">Stego Image (contains hidden data):</p>
+                <img src="{{ url_for('uploaded_file', filename=stego_image) }}"
+                     class="img-fluid rounded border" alt="Stego Image">
+
+                <div class="mt-3">
+                    <a class="btn btn-outline-secondary"
+                       href="{{ url_for('uploaded_file', filename=stego_image) }}" download>
+                       Download Stego Image
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function togglePayloadControls() {
+        const type = document.querySelector('input[name="payload_type"]:checked').value;
+
+        const textBox = document.getElementById("textBox");
+        const fileBox = document.getElementById("fileBox");
+
+        if (type === "text") {
+            textBox.style.display = "block";
+            fileBox.style.display = "none";
+        } else {
+            textBox.style.display = "none";
+            fileBox.style.display = "block";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", togglePayloadControls);
+</script>
+{% endblock %}

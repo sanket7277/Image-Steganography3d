@@ -1,0 +1,32 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="container py-5">
+  <div class="card shadow-sm p-4">
+    <h3 class="fw-bold mb-4 text-center">My Activity History</h3>
+    {% if logs %}
+    <div class="table-responsive">
+      <table class="table table-bordered align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Action</th>
+            <th>File</th>
+            <th>Date & Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td class="fw-semibold">{{ log.action | capitalize }}</td>
+            <td>{{ log.file_name }}</td>
+            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="text-muted text-center">No history yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
