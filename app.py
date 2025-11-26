@@ -22,7 +22,8 @@ app.config['SECRET_KEY'] = "supersecretkey"
 app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///steganography.db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-UPLOAD_FOLDER = "static/uploads"
+# Render safe upload directory
+UPLOAD_FOLDER = "/tmp/uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
@@ -53,7 +54,7 @@ class History(db.Model):
 
 
 # --------------------------
-# Flask Login
+# Flask Login Loader
 # --------------------------
 @login_manager.user_loader
 def load_user(user_id):
@@ -93,26 +94,21 @@ def contact():
 @login_required
 def encode():
     if request.method == "POST":
-
         cover_image = request.files.get("cover_image")
         password = request.form.get("password")
-        payload_type = request.form.get("payload_type")   # text, image, 3d, video, file
+        payload_type = request.form.get("payload_type")
 
         if not cover_image or not password:
             flash("Please provide a cover image and a password.", "danger")
             return redirect(request.url)
 
         try:
-            # Save cover image
             filename = secure_filename(cover_image.filename)
             cover_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
             cover_image.save(cover_path)
 
             payload = None
 
-            # ------------------------------------------------------------
-            # TEXT PAYLOAD
-            # ------------------------------------------------------------
             if payload_type == "text":
                 secret_text = request.form.get("secret_text")
                 if not secret_text:
@@ -125,84 +121,19 @@ def encode():
                     password=password
                 )
 
-            # ------------------------------------------------------------
-            # IMAGE PAYLOAD
-            # ------------------------------------------------------------
-            elif payload_type == "image":
-                secret_image = request.files.get("secret_file")
-                if not secret_image:
-                    flash("Please select an image file.", "danger")
+            elif payload_type in ["image", "3d", "video"]:
+                secret_file = request.files.get("secret_file")
+                if not secret_file:
+                    flash("Please upload a file.", "danger")
                     return redirect(request.url)
 
                 secret_path = os.path.join(
                     app.config["UPLOAD_FOLDER"],
-                    secure_filename(secret_image.filename)
+                    secure_filename(secret_file.filename)
                 )
-                secret_image.save(secret_path)
+                secret_file.save(secret_path)
 
-                ext = secret_image.filename.rsplit('.', 1)[1].lower()
-                secret_blob = open(secret_path, 'rb').read()
-
-                payload = prepare_payload(
-                    kind="file",
-                    blob=secret_blob,
-                    file_ext=ext,
-                    password=password
-                )
-
-            # ------------------------------------------------------------
-            # 3D MODEL PAYLOAD
-            # ------------------------------------------------------------
-            elif payload_type == "3d":
-                secret_3d = request.files.get("secret_file")
-                if not secret_3d:
-                    flash("Please upload a 3D model file.", "danger")
-                    return redirect(request.url)
-
-                secret_path = os.path.join(
-                    app.config["UPLOAD_FOLDER"],
-                    secure_filename(secret_3d.filename)
-                )
-                secret_3d.save(secret_path)
-
-                ext = secret_3d.filename.rsplit('.', 1)[1].lower()
-                allowed_3d = ["obj", "stl", "fbx", "gltf", "glb", "dae", "3ds"]
-
-                if ext not in allowed_3d:
-                    flash("Invalid 3D model format.", "danger")
-                    return redirect(request.url)
-
-                blob = open(secret_path, "rb").read()
-
-                payload = prepare_payload(
-                    kind="file",
-                    blob=blob,
-                    file_ext=ext,
-                    password=password
-                )
-
-            # ------------------------------------------------------------
-            # VIDEO PAYLOAD
-            # ------------------------------------------------------------
-            elif payload_type == "video":
-                secret_video = request.files.get("secret_file")
-                if not secret_video:
-                    flash("Please upload a video file.", "danger")
-                    return redirect(request.url)
-
-                secret_path = os.path.join(
-                    app.config["UPLOAD_FOLDER"],
-                    secure_filename(secret_video.filename)
-                )
-                secret_video.save(secret_path)
-
-                ext = secret_video.filename.rsplit('.', 1)[1].lower()
-                allowed_video = ["mp4", "avi", "mkv", "mov", "webm"]
-
-                if ext not in allowed_video:
-                    flash("Invalid video format.", "danger")
-                    return redirect(request.url)
-
+                ext = secret_file.filename.rsplit('.', 1)[1].lower()
                 blob = open(secret_path, "rb").read()
 
                 payload = prepare_payload(
@@ -213,18 +144,14 @@ def encode():
                 )
 
             else:
-                flash("Invalid payload type selected.", "danger")
+                flash("Invalid payload type.", "danger")
                 return redirect(request.url)
 
-            # ------------------------------------------------------------
-            # ENCODE USING LSB
-            # ------------------------------------------------------------
             stego_filename = "stego_" + filename
             stego_path = os.path.join(app.config["UPLOAD_FOLDER"], stego_filename)
 
             encode_lsb(cover_path, payload, stego_path)
 
-            # Save history log
             new_log = History(
                 user_id=current_user.id,
                 action="encode",
@@ -237,7 +164,7 @@ def encode():
             return render_template("index.html", stego_image=stego_filename)
 
         except Exception as e:
-            flash(f"An error occurred: {str(e)}", "danger")
+            flash(f"Error: {str(e)}", "danger")
             return redirect(request.url)
 
     return render_template("index.html")
@@ -250,7 +177,6 @@ def encode():
 @login_required
 def decode():
     if request.method == "POST":
-
         stego_image = request.files.get("stego_image")
         password = request.form.get("password")
 
@@ -263,11 +189,9 @@ def decode():
             stego_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
             stego_image.save(stego_path)
 
-            # decode payload bytes
             payload = decode_lsb(stego_path)
             decoded = parse_payload(payload, password)
 
-            # Save log
             new_log = History(
                 user_id=current_user.id,
                 action="decode",
@@ -276,16 +200,9 @@ def decode():
             db.session.add(new_log)
             db.session.commit()
 
-            # ------------------------------------------------------------
-            # TEXT
-            # ------------------------------------------------------------
             if decoded["kind"] == "text":
                 return render_template("extract.html", extracted_text=decoded["text"])
 
-            # ------------------------------------------------------------
-            # GENERIC FILE
-            # (image / 3d model / video / anything)
-            # ------------------------------------------------------------
             elif decoded["kind"] == "file":
                 ext = decoded["file_ext"]
                 blob = decoded["blob"]
@@ -306,9 +223,8 @@ def decode():
 
 
 # ==========================================================
-# AUTH ROUTES
+# AUTH
 # ==========================================================
-
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
@@ -316,8 +232,7 @@ def signup():
         email = request.form["email"]
         password = request.form["password"]
 
-        existing_user = User.query.filter_by(email=email).first()
-        if existing_user:
+        if User.query.filter_by(email=email).first():
             flash("Email already registered. Please login.", "warning")
             return redirect(url_for("login"))
 
@@ -326,7 +241,7 @@ def signup():
         db.session.add(new_user)
         db.session.commit()
 
-        flash("Account created! Please login.", "success")
+        flash("Account created! Login now.", "success")
         return redirect(url_for("login"))
 
     return render_template("signup.html")
@@ -335,7 +250,6 @@ def signup():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-
         email = request.form["email"]
         password = request.form["password"]
 
@@ -343,10 +257,9 @@ def login():
 
         if user and bcrypt.check_password_hash(user.password, password):
             login_user(user)
-            flash(f"Welcome, {user.username}!", "success")
             return redirect(url_for("home"))
 
-        flash("Invalid email or password.", "danger")
+        flash("Invalid credentials.", "danger")
 
     return render_template("login.html")
 
@@ -355,7 +268,7 @@ def login():
 @login_required
 def logout():
     logout_user()
-    flash("Logged out.", "info")
+    flash("Logged out!", "info")
     return redirect(url_for("login"))
 
 
@@ -380,7 +293,7 @@ def uploaded_file(filename):
 
 
 # ==========================================================
-# RUN APP
+# DB Init + Run
 # ==========================================================
 with app.app_context():
     db.create_all()
